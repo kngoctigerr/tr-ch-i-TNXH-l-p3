@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trò Chơi 3 Đới Khí Hậu - Phiên Bản Nâng Cao</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Nunito', sans-serif;
+        }
+        
+        .climate-zone {
+            transition: all 0.3s ease;
+            border: 3px dashed transparent;
+        }
+        
+        .climate-zone.drag-over {
+            border-color: #fbbf24;
+            background-color: rgba(251, 191, 36, 0.1);
+            transform: scale(1.02);
+        }
+        
+        .activity-item {
+            cursor: grab;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+        
+        .activity-item:hover {
+            transform: scale(1.05);
+        }
+        
+        .activity-item.dragging {
+            opacity: 0.5;
+            transform: rotate(5deg);
+        }
+        
+        .fireworks {
+            position: absolute;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        
+        .firework {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            position: absolute;
+            animation: explode 0.8s ease-out forwards;
+        }
+        
+        @keyframes explode {
+            0% {
+                transform: scale(0);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(20);
+                opacity: 0;
+            }
+        }
+        
+        .bounce {
+            animation: bounce 0.6s ease-in-out;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-10px);
+            }
+            60% {
+                transform: translateY(-5px);
+            }
+        }
+        
+        .hot-zone {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b, #d97706);
+        }
+        
+        .temperate-zone {
+            background: linear-gradient(135deg, #10b981, #059669, #047857);
+        }
+        
+        .cold-zone {
+            background: linear-gradient(135deg, #3b82f6, #2563eb, #1d4ed8);
+        }
+        
+        .success-message {
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .star {
+            animation: twinkle 1s ease-in-out infinite alternate;
+        }
+        
+        @keyframes twinkle {
+            from { opacity: 0.5; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1.2); }
+        }
+        
+        .progress-bar {
+            transition: width 0.5s ease-in-out;
+        }
+        
+        .level-badge {
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .timer {
+            animation: countdown 1s ease-in-out infinite;
+        }
+        
+        @keyframes countdown {
+            0%, 100% { color: #ef4444; }
+            50% { color: #dc2626; }
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        
+        .medal {
+            animation: medalSpin 2s ease-in-out;
+        }
+        
+        @keyframes medalSpin {
+            0% { transform: rotateY(0deg); }
+            50% { transform: rotateY(180deg); }
+            100% { transform: rotateY(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-sky-200 via-blue-200 to-indigo-300 min-h-screen p-4">
+    <div class="max-w-7xl mx-auto">
+        <!-- Game Mode Selection -->
+        <div id="mode-selection" class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-blue-800 mb-4">🌍 Ba Đới Khí Hậu 🌍</h1>
+            <p class="text-xl text-blue-600 font-semibold mb-6">Chọn chế độ chơi:</p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
+                <button onclick="startGame('easy')" class="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-6 rounded-2xl shadow-lg transform hover:scale-105 transition-all">
+                    <div class="text-3xl mb-2">😊</div>
+                    <div class="text-lg">Dễ</div>
+                    <div class="text-sm">Không giới hạn thời gian</div>
+                </button>
+                <button onclick="startGame('medium')" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-4 px-6 rounded-2xl shadow-lg transform hover:scale-105 transition-all">
+                    <div class="text-3xl mb-2">🤔</div>
+                    <div class="text-lg">Trung Bình</div>
+                    <div class="text-sm">3 phút để hoàn thành</div>
+                </button>
+                <button onclick="startGame('hard')" class="bg-red-500 hover:bg-red-600 text-white font-bold py-4 px-6 rounded-2xl shadow-lg transform hover:scale-105 transition-all">
+                    <div class="text-3xl mb-2">🔥</div>
+                    <div class="text-lg">Khó</div>
+                    <div class="text-sm">2 phút + thêm hoạt động</div>
+                </button>
+            </div>
+        </div>
+
+        <!-- Game Interface -->
+        <div id="game-interface" class="hidden">
+            <!-- Header with Stats -->
+            <div class="bg-white rounded-3xl p-6 shadow-2xl mb-6">
+                <div class="flex flex-wrap justify-between items-center gap-4">
+                    <div class="flex items-center space-x-4">
+                        <div class="level-badge bg-purple-500 text-white px-4 py-2 rounded-full font-bold">
+                            <span id="current-level">Cấp độ: Dễ</span>
+                        </div>
+                        <div class="bg-blue-100 px-4 py-2 rounded-full">
+                            <span class="text-blue-800 font-bold">Điểm: </span>
+                            <span id="score" class="text-blue-800 font-bold">0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <div id="timer-container" class="hidden bg-red-100 px-4 py-2 rounded-full">
+                            <span class="text-red-800 font-bold">⏰ Thời gian: </span>
+                            <span id="timer" class="text-red-800 font-bold timer">180</span>
+                        </div>
+                        <div class="bg-green-100 px-4 py-2 rounded-full">
+                            <span class="text-green-800 font-bold">Đúng: </span>
+                            <span id="correct-count" class="text-green-800 font-bold">0</span>
+                            <span class="text-green-800 font-bold">/</span>
+                            <span id="total-count" class="text-green-800 font-bold">12</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div class="mt-4 bg-gray-200 rounded-full h-4">
+                    <div id="progress-bar" class="progress-bar bg-gradient-to-r from-green-400 to-blue-500 h-4 rounded-full" style="width: 0%"></div>
+                </div>
+                
+                <!-- Stars Display -->
+                <div class="flex justify-center mt-4 space-x-2">
+                    <span id="star1" class="text-4xl opacity-30">⭐</span>
+                    <span id="star2" class="text-4xl opacity-30">⭐</span>
+                    <span id="star3" class="text-4xl opacity-30">⭐</span>
+                </div>
+            </div>
+
+            <!-- Climate Zones -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                <!-- Hot Zone -->
+                <div class="climate-zone hot-zone rounded-3xl p-6 shadow-2xl" data-zone="hot">
+                    <div class="text-center mb-4">
+                        <h2 class="text-2xl font-bold text-white mb-2">🌞 ĐỚI NÓNG 🌞</h2>
+                        <div class="bg-white rounded-2xl p-4 shadow-lg">
+                            <div class="text-6xl mb-2">🏜️</div>
+                            <div class="flex justify-center space-x-2 text-3xl">
+                                <span>🌵</span>
+                                <span>🐪</span>
+                                <span>☀️</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="drop-zone min-h-32 bg-white bg-opacity-20 rounded-2xl border-2 border-dashed border-white p-4" data-zone="hot">
+                        <p class="text-white text-center font-semibold">Thả hoạt động vào đây!</p>
+                        <div class="activities-container grid grid-cols-2 gap-2 mt-2"></div>
+                    </div>
+                </div>
+
+                <!-- Temperate Zone -->
+                <div class="climate-zone temperate-zone rounded-3xl p-6 shadow-2xl" data-zone="temperate">
+                    <div class="text-center mb-4">
+                        <h2 class="text-2xl font-bold text-white mb-2">🌿 ĐỚI ÔN HÒA 🌿</h2>
+                        <div class="bg-white rounded-2xl p-4 shadow-lg">
+                            <div class="text-6xl mb-2">🌳</div>
+                            <div class="flex justify-center space-x-2 text-3xl">
+                                <span>🌾</span>
+                                <span>🍇</span>
+                                <span>🌤️</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="drop-zone min-h-32 bg-white bg-opacity-20 rounded-2xl border-2 border-dashed border-white p-4" data-zone="temperate">
+                        <p class="text-white text-center font-semibold">Thả hoạt động vào đây!</p>
+                        <div class="activities-container grid grid-cols-2 gap-2 mt-2"></div>
+                    </div>
+                </div>
+
+                <!-- Cold Zone -->
+                <div class="climate-zone cold-zone rounded-3xl p-6 shadow-2xl" data-zone="cold">
+                    <div class="text-center mb-4">
+                        <h2 class="text-2xl font-bold text-white mb-2">❄️ ĐỚI LẠNH ❄️</h2>
+                        <div class="bg-white rounded-2xl p-4 shadow-lg">
+                            <div class="text-6xl mb-2">🏔️</div>
+                            <div class="flex justify-center space-x-2 text-3xl">
+                                <span>⛄</span>
+                                <span>🐧</span>
+                                <span>🌨️</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="drop-zone min-h-32 bg-white bg-opacity-20 rounded-2xl border-2 border-dashed border-white p-4" data-zone="cold">
+                        <p class="text-white text-center font-semibold">Thả hoạt động vào đây!</p>
+                        <div class="activities-container grid grid-cols-2 gap-2 mt-2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activities to Drag -->
+            <div class="bg-white rounded-3xl p-6 shadow-2xl">
+                <h3 class="text-2xl font-bold text-center text-blue-800 mb-6">🎯 Kéo các hoạt động này vào đúng đới khí hậu! 🎯</h3>
+                <div id="activities-container" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    <!-- Activities will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Control Buttons -->
+            <div class="text-center mt-6 space-x-4">
+                <button onclick="resetGame()" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-2xl shadow-lg transform hover:scale-105 transition-all">
+                    🔄 Chơi Lại
+                </button>
+                <button onclick="showHint()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-2xl shadow-lg transform hover:scale-105 transition-all">
+                    💡 Gợi Ý
+                </button>
+                <button onclick="backToMenu()" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-6 rounded-2xl shadow-lg transform hover:scale-105 transition-all">
+                    🏠 Menu Chính
+                </button>
+            </div>
+        </div>
+
+        <!-- Success Message -->
+        <div id="success-message" class="hidden fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-3xl p-8 shadow-2xl text-center z-50 max-w-md">
+            <div id="medal-display" class="text-6xl mb-4 medal">🏆</div>
+            <h2 class="text-2xl font-bold text-green-600 mb-4">Chúc Mừng!</h2>
+            <div id="final-score" class="text-lg mb-4"></div>
+            <div id="performance-message" class="text-md mb-4"></div>
+            <button onclick="playAgain()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-2xl mr-2">Chơi Lại</button>
+            <button onclick="backToMenu()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-2xl">Menu Chính</button>
+        </div>
+
+        <!-- Hint Modal -->
+        <div id="hint-modal" class="hidden fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-3xl p-6 shadow-2xl z-50 max-w-lg">
+            <h3 class="text-xl font-bold text-blue-800 mb-4">💡 Gợi Ý</h3>
+            <div id="hint-content" class="text-gray-700 mb-4"></div>
+            <button onclick="closeHint()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-2xl">Đóng</button>
+        </div>
+
+        <!-- Overlay -->
+        <div id="overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-40"></div>
+    </div>
+
+    <script>
+        let gameMode = 'easy';
+        let score = 0;
+        let correctAnswers = 0;
+        let totalActivities = 12;
+        let timeLeft = 0;
+        let timerInterval;
+        let gameStartTime;
+        let wrongAttempts = 0;
+        
+        const activities = {
+            easy: {
+                hot: [
+                    {emoji: '🐪', text: 'Chăn nuôi lạc đà'},
+                    {emoji: '☕', text: 'Trồng cà phê'},
+                    {emoji: '🥥', text: 'Thu hoạch dừa'},
+                    {emoji: '🌴', text: 'Sống ở sa mạc'}
+                ],
+                temperate: [
+                    {emoji: '🍇', text: 'Trồng nho'},
+                    {emoji: '🌾', text: 'Thu hoạch lúa mì'},
+                    {emoji: '🚜', text: 'Làm nông nghiệp'},
+                    {emoji: '🏡', text: 'Sống ở thành phố'}
+                ],
+                cold: [
+                    {emoji: '⛷️', text: 'Trượt tuyết'},
+                    {emoji: '🎣', text: 'Câu cá trên băng'},
+                    {emoji: '🛷', text: 'Đi xe trượt tuyết'},
+                    {emoji: '🏠', text: 'Sống ở vùng băng'}
+                ]
+            },
+            hard: {
+                hot: [
+                    {emoji: '🐪', text: 'Chăn nuôi lạc đà'},
+                    {emoji: '☕', text: 'Trồng cà phê'},
+                    {emoji: '🥥', text: 'Thu hoạch dừa'},
+                    {emoji: '🌴', text: 'Sống ở sa mạc'},
+                    {emoji: '🦎', text: 'Nuôi thằn lằn'},
+                    {emoji: '🌵', text: 'Trồng xương rồng'}
+                ],
+                temperate: [
+                    {emoji: '🍇', text: 'Trồng nho'},
+                    {emoji: '🌾', text: 'Thu hoạch lúa mì'},
+                    {emoji: '🚜', text: 'Làm nông nghiệp'},
+                    {emoji: '🏡', text: 'Sống ở thành phố'},
+                    {emoji: '🍎', text: 'Trồng táo'},
+                    {emoji: '🌻', text: 'Trồng hoa hướng dương'}
+                ],
+                cold: [
+                    {emoji: '⛷️', text: 'Trượt tuyết'},
+                    {emoji: '🎣', text: 'Câu cá trên băng'},
+                    {emoji: '🛷', text: 'Đi xe trượt tuyết'},
+                    {emoji: '🏠', text: 'Sống ở vùng băng'},
+                    {emoji: '🐧', text: 'Quan sát chim cánh cụt'},
+                    {emoji: '🦭', text: 'Săn hải cẩu'}
+                ]
+            }
+        };
+        
+        const hints = {
+            hot: "Đới nóng có khí hậu nắng nóng quanh năm. Người dân thường chăn nuôi động vật chịu được nóng như lạc đà, trồng cây nhiệt đới như cà phê, dừa.",
+            temperate: "Đới ôn hòa có 4 mùa rõ rệt. Người dân làm nông nghiệp, trồng lúa mì, nho, sống ở thành phố phát triển.",
+            cold: "Đới lạnh có khí hậu lạnh giá, tuyết rơi nhiều. Người dân thường trượt tuyết, câu cá trên băng, sống trong nhà ấm."
+        };
+        
+        function startGame(mode) {
+            gameMode = mode;
+            gameStartTime = Date.now();
+            wrongAttempts = 0;
+            
+            document.getElementById('mode-selection').classList.add('hidden');
+            document.getElementById('game-interface').classList.remove('hidden');
+            
+            // Set up game based on mode
+            if (mode === 'easy') {
+                document.getElementById('current-level').textContent = 'Cấp độ: Dễ 😊';
+                totalActivities = 12;
+                timeLeft = 0;
+            } else if (mode === 'medium') {
+                document.getElementById('current-level').textContent = 'Cấp độ: Trung Bình 🤔';
+                totalActivities = 12;
+                timeLeft = 180; // 3 minutes
+                startTimer();
+            } else if (mode === 'hard') {
+                document.getElementById('current-level').textContent = 'Cấp độ: Khó 🔥';
+                totalActivities = 18;
+                timeLeft = 120; // 2 minutes
+                startTimer();
+            }
+            
+            document.getElementById('total-count').textContent = totalActivities;
+            loadActivities();
+            setupDragAndDrop();
+        }
+        
+        function startTimer() {
+            document.getElementById('timer-container').classList.remove('hidden');
+            document.getElementById('timer').textContent = timeLeft;
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer').textContent = timeLeft;
+                
+                if (timeLeft <= 30) {
+                    document.getElementById('timer').classList.add('timer');
+                }
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    endGame(false);
+                }
+            }, 1000);
+        }
+        
+        function loadActivities() {
+            const container = document.getElementById('activities-container');
+            container.innerHTML = '';
+            
+            const activitySet = gameMode === 'hard' ? activities.hard : activities.easy;
+            const allActivities = [];
+            
+            // Collect all activities
+            Object.keys(activitySet).forEach(zone => {
+                activitySet[zone].forEach(activity => {
+                    allActivities.push({...activity, zone});
+                });
+            });
+            
+            // Shuffle activities
+            allActivities.sort(() => Math.random() - 0.5);
+            
+            // Create activity elements
+            allActivities.forEach(activity => {
+                const element = document.createElement('div');
+                element.className = `activity-item bg-${getZoneColor(activity.zone)}-100 rounded-2xl p-4 text-center shadow-lg border-2 border-${getZoneColor(activity.zone)}-300`;
+                element.draggable = true;
+                element.dataset.zone = activity.zone;
+                element.innerHTML = `
+                    <div class="text-4xl mb-2">${activity.emoji}</div>
+                    <p class="text-sm font-semibold text-${getZoneColor(activity.zone)}-800">${activity.text}</p>
+                `;
+                container.appendChild(element);
+            });
+        }
+        
+        function getZoneColor(zone) {
+            const colors = {hot: 'orange', temperate: 'green', cold: 'blue'};
+            return colors[zone];
+        }
+        
+        function setupDragAndDrop() {
+            const activities = document.querySelectorAll('.activity-item');
+            const dropZones = document.querySelectorAll('.drop-zone');
+            
+            activities.forEach(activity => {
+                activity.addEventListener('dragstart', handleDragStart);
+                activity.addEventListener('dragend', handleDragEnd);
+            });
+            
+            dropZones.forEach(zone => {
+                zone.addEventListener('dragover', handleDragOver);
+                zone.addEventListener('dragenter', handleDragEnter);
+                zone.addEventListener('dragleave', handleDragLeave);
+                zone.addEventListener('drop', handleDrop);
+            });
+        }
+        
+        function handleDragStart(e) {
+            this.classList.add('dragging');
+            e.dataTransfer.setData('text/plain', this.dataset.zone);
+            e.dataTransfer.effectAllowed = 'move';
+        }
+        
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+        }
+        
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+        
+        function handleDragEnter(e) {
+            e.preventDefault();
+            this.closest('.climate-zone').classList.add('drag-over');
+        }
+        
+        function handleDragLeave(e) {
+            if (!this.contains(e.relatedTarget)) {
+                this.closest('.climate-zone').classList.remove('drag-over');
+            }
+        }
+        
+        function handleDrop(e) {
+            e.preventDefault();
+            const draggedZone = e.dataTransfer.getData('text/plain');
+            const dropZone = this.dataset.zone;
+            const draggedElement = document.querySelector('.activity-item.dragging');
+            
+            this.closest('.climate-zone').classList.remove('drag-over');
+            
+            if (draggedZone === dropZone) {
+                // Correct drop
+                const container = this.querySelector('.activities-container');
+                container.appendChild(draggedElement);
+                draggedElement.classList.remove('dragging');
+                draggedElement.draggable = false;
+                draggedElement.classList.add('bounce');
+                
+                // Update score
+                correctAnswers++;
+                score += getScoreForCorrectAnswer();
+                updateUI();
+                
+                // Create fireworks effect
+                createFireworks(e.clientX, e.clientY);
+                showSuccessEffect(draggedElement);
+                
+                // Check if game is complete
+                if (correctAnswers === totalActivities) {
+                    setTimeout(() => {
+                        endGame(true);
+                    }, 1000);
+                }
+            } else {
+                // Wrong drop
+                wrongAttempts++;
+                score = Math.max(0, score - 5); // Penalty for wrong answer
+                draggedElement.style.animation = 'shake 0.5s ease-in-out';
+                setTimeout(() => {
+                    draggedElement.style.animation = '';
+                }, 500);
+                updateUI();
+            }
+        }
+        
+        function getScoreForCorrectAnswer() {
+            let baseScore = 10;
+            if (gameMode === 'medium') baseScore = 15;
+            if (gameMode === 'hard') baseScore = 20;
+            
+            // Bonus for speed (if timer is active)
+            if (timeLeft > 0) {
+                const timeBonus = Math.floor(timeLeft / 10);
+                baseScore += timeBonus;
+            }
+            
+            return baseScore;
+        }
+        
+        function updateUI() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('correct-count').textContent = correctAnswers;
+            
+            // Update progress bar
+            const progress = (correctAnswers / totalActivities) * 100;
+            document.getElementById('progress-bar').style.width = progress + '%';
+            
+            // Update stars
+            updateStars();
+        }
+        
+        function updateStars() {
+            const percentage = (correctAnswers / totalActivities) * 100;
+            const star1 = document.getElementById('star1');
+            const star2 = document.getElementById('star2');
+            const star3 = document.getElementById('star3');
+            
+            if (percentage >= 33) {
+                star1.classList.remove('opacity-30');
+                star1.classList.add('star');
+            }
+            if (percentage >= 66) {
+                star2.classList.remove('opacity-30');
+                star2.classList.add('star');
+            }
+            if (percentage >= 90) {
+                star3.classList.remove('opacity-30');
+                star3.classList.add('star');
+            }
+        }
+        
+        function createFireworks(x, y) {
+            const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dda0dd'];
+            const fireworksContainer = document.createElement('div');
+            fireworksContainer.className = 'fireworks';
+            fireworksContainer.style.left = x + 'px';
+            fireworksContainer.style.top = y + 'px';
+            
+            for (let i = 0; i < 12; i++) {
+                const firework = document.createElement('div');
+                firework.className = 'firework';
+                firework.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                firework.style.left = (Math.random() - 0.5) * 100 + 'px';
+                firework.style.top = (Math.random() - 0.5) * 100 + 'px';
+                fireworksContainer.appendChild(firework);
+            }
+            
+            document.body.appendChild(fireworksContainer);
+            
+            setTimeout(() => {
+                document.body.removeChild(fireworksContainer);
+            }, 1000);
+        }
+        
+        function showSuccessEffect(element) {
+            element.style.transform = 'scale(1.1)';
+            element.style.boxShadow = '0 0 20px rgba(34, 197, 94, 0.6)';
+            
+            setTimeout(() => {
+                element.style.transform = 'scale(1)';
+                element.style.boxShadow = '';
+            }, 300);
+        }
+        
+        function endGame(completed) {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            
+            const gameTime = (Date.now() - gameStartTime) / 1000;
+            const accuracy = (correctAnswers / (correctAnswers + wrongAttempts)) * 100;
+            
+            // Determine medal and message
+            let medal = '🏆';
+            let message = '';
+            
+            if (completed) {
+                if (accuracy >= 90 && wrongAttempts <= 2) {
+                    medal = '🥇';
+                    message = 'Xuất sắc! Bạn là chuyên gia về khí hậu!';
+                } else if (accuracy >= 75) {
+                    medal = '🥈';
+                    message = 'Rất tốt! Bạn hiểu rõ về các đới khí hậu!';
+                } else {
+                    medal = '🥉';
+                    message = 'Tốt lắm! Hãy tiếp tục luyện tập nhé!';
+                }
+            } else {
+                medal = '⏰';
+                message = 'Hết giờ! Đừng lo, hãy thử lại nhé!';
+            }
+            
+            document.getElementById('medal-display').textContent = medal;
+            document.getElementById('final-score').innerHTML = `
+                <div class="text-2xl font-bold text-blue-600">Điểm số: ${score}</div>
+                <div class="text-sm text-gray-600">Đúng: ${correctAnswers}/${totalActivities}</div>
+                <div class="text-sm text-gray-600">Độ chính xác: ${accuracy.toFixed(1)}%</div>
+                <div class="text-sm text-gray-600">Thời gian: ${gameTime.toFixed(1)}s</div>
+            `;
+            document.getElementById('performance-message').textContent = message;
+            
+            document.getElementById('success-message').classList.remove('hidden');
+            document.getElementById('overlay').classList.remove('hidden');
+            
+            // Celebration fireworks
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    createFireworks(
+                        Math.random() * window.innerWidth,
+                        Math.random() * window.innerHeight
+                    );
+                }, i * 200);
+            }
+        }
+        
+        function showHint() {
+            const remainingZones = [];
+            const dropZones = document.querySelectorAll('.drop-zone');
+            
+            dropZones.forEach(zone => {
+                const container = zone.querySelector('.activities-container');
+                const expectedCount = gameMode === 'hard' ? 6 : 4;
+                if (container.children.length < expectedCount) {
+                    remainingZones.push(zone.dataset.zone);
+                }
+            });
+            
+            if (remainingZones.length > 0) {
+                const randomZone = remainingZones[Math.floor(Math.random() * remainingZones.length)];
+                document.getElementById('hint-content').textContent = hints[randomZone];
+                document.getElementById('hint-modal').classList.remove('hidden');
+                document.getElementById('overlay').classList.remove('hidden');
+            }
+        }
+        
+        function closeHint() {
+            document.getElementById('hint-modal').classList.add('hidden');
+            document.getElementById('overlay').classList.add('hidden');
+        }
+        
+        function resetGame() {
+            score = 0;
+            correctAnswers = 0;
+            wrongAttempts = 0;
+            
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            
+            // Reset UI
+            document.getElementById('score').textContent = '0';
+            document.getElementById('correct-count').textContent = '0';
+            document.getElementById('progress-bar').style.width = '0%';
+            
+            // Reset stars
+            ['star1', 'star2', 'star3'].forEach(id => {
+                const star = document.getElementById(id);
+                star.classList.add('opacity-30');
+                star.classList.remove('star');
+            });
+            
+            // Clear drop zones
+            document.querySelectorAll('.activities-container').forEach(container => {
+                container.innerHTML = '';
+            });
+            
+            // Restart game
+            startGame(gameMode);
+        }
+        
+        function playAgain() {
+            document.getElementById('success-message').classList.add('hidden');
+            document.getElementById('overlay').classList.add('hidden');
+            resetGame();
+        }
+        
+        function backToMenu() {
+            document.getElementById('success-message').classList.add('hidden');
+            document.getElementById('hint-modal').classList.add('hidden');
+            document.getElementById('overlay').classList.add('hidden');
+            document.getElementById('game-interface').classList.add('hidden');
+            document.getElementById('mode-selection').classList.remove('hidden');
+            
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+        }
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96ea4d420579050b',t:'MTc1NTExMDAxNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
